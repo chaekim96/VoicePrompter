@@ -7,7 +7,7 @@ import SwiftUI
 /// app you're presenting in, it floats over full-screen apps, and it follows you across Spaces.
 final class OverlayPanel: NSPanel {
     init(frame: NSRect) {
-        super.init(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel, .resizable],
+        super.init(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel, .resizable, .miniaturizable],
                    backing: .buffered, defer: false)
         level = .screenSaver
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
@@ -57,6 +57,8 @@ final class OverlayController {
     private let container = OverlayContainerView()
     private var controls: NSView!
     private var errorBanner: NSView!
+    private var windowButtons: NSView!
+    private let hover = HoverState()
     private var cancellables = Set<AnyCancellable>()
     private var lastStyleKey: PrompterTextView.Style?
     private var lastScriptText = ""
@@ -96,7 +98,16 @@ final class OverlayController {
         container.addSubview(controlsView)
         controls = controlsView
 
-        let status = FirstMouseHostingView(rootView: StatusOverlay(model: model))
+        let buttons = FirstMouseHostingView(rootView: WindowButtons(
+            close: { [weak self] in self?.model.overlayVisible = false },
+            minimize: { [weak self] in self?.minimize() }))
+        buttons.frame = NSRect(x: 6, y: container.bounds.height - 30, width: 56, height: 26)
+        buttons.autoresizingMask = [.maxXMargin, .minYMargin]
+        buttons.alphaValue = 0
+        container.addSubview(buttons)
+        windowButtons = buttons
+
+        let status = FirstMouseHostingView(rootView: StatusOverlay(model: model, hover: hover))
         status.frame = container.bounds
         status.autoresizingMask = [.width, .height]
         // The status layer only draws small badges, so all clicks pass through it to the text.
@@ -113,7 +124,12 @@ final class OverlayController {
 
         container.onHoverChange = { [weak self] inside in
             guard let self else { return }
-            NSAnimationContext.runAnimationGroup { $0.duration = 0.15; self.controls.animator().alphaValue = inside ? 1 : 0 }
+            self.hover.inside = inside
+            NSAnimationContext.runAnimationGroup {
+                $0.duration = 0.15
+                self.controls.animator().alphaValue = inside ? 1 : 0
+                self.windowButtons.animator().alphaValue = inside ? 1 : 0
+            }
         }
         NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: panel, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.layoutInsets() }
@@ -136,14 +152,19 @@ final class OverlayController {
         model.$script.sink { [weak self] _ in DispatchQueue.main.async { self?.render(force: false) } }.store(in: &cancellables)
         model.$clickThrough.sink { [weak self] on in
             self?.panel.ignoresMouseEvents = on
-            if on { self?.controls.alphaValue = 0 }
+            if on { self?.controls.alphaValue = 0; self?.windowButtons.alphaValue = 0; self?.hover.inside = false }
         }.store(in: &cancellables)
         model.$tracking.sink { [weak self] state in
             if case .error = state { self?.errorBanner.isHidden = false } else { self?.errorBanner.isHidden = true }
         }.store(in: &cancellables)
         model.$overlayVisible.sink { [weak self] visible in
             guard let self else { return }
-            visible ? self.panel.orderFrontRegardless() : self.panel.orderOut(nil)
+            if visible {
+                if self.panel.isMiniaturized { self.panel.deminiaturize(nil) }
+                self.panel.orderFrontRegardless()
+            } else {
+                self.panel.orderOut(nil)
+            }
         }.store(in: &cancellables)
     }
 
@@ -162,6 +183,15 @@ final class OverlayController {
             lastScriptText = model.script.text
             textView.render(script: model.script, position: model.position, style: style)
             textView.scrollToCurrent(animated: false)
+        }
+    }
+
+    /// Minimizes to the Dock like any window. Without a Dock icon there's nowhere to minimize to, so it hides.
+    func minimize() {
+        if model.settings.showInDock {
+            panel.miniaturize(nil)
+        } else {
+            model.overlayVisible = false
         }
     }
 
@@ -264,8 +294,43 @@ struct HoverControls: View {
     }
 }
 
+final class HoverState: ObservableObject {
+    @Published var inside = false
+}
+
+/// Close and minimize buttons in the familiar macOS style, shown while hovering over the prompter.
+struct WindowButtons: View {
+    let close: () -> Void
+    let minimize: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            light(Color(red: 1, green: 0.37, blue: 0.34), symbol: "xmark", help: "Hide prompter (⌃⌥H to show again)", action: close)
+            light(Color(red: 1, green: 0.74, blue: 0.18), symbol: "minus", help: "Minimize to the Dock", action: minimize)
+        }
+        .padding(.horizontal, 8).padding(.vertical, 6)
+        .onHover { hovering = $0 }
+    }
+
+    private func light(_ color: Color, symbol: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            ZStack {
+                Circle().fill(color).overlay(Circle().stroke(Color.black.opacity(0.2), lineWidth: 0.5))
+                Image(systemName: symbol).font(.system(size: 7, weight: .black))
+                    .foregroundStyle(Color.black.opacity(0.6)).opacity(hovering ? 1 : 0)
+            }
+            .frame(width: 12, height: 12)
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
 struct StatusOverlay: View {
     @ObservedObject var model: AppModel
+    @ObservedObject var hover: HoverState
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -281,6 +346,7 @@ struct StatusOverlay: View {
                 }
             }
             .padding(.leading, 10).padding(.top, 9)
+            .opacity(hover.inside ? 0 : 1) // make room for the close/minimize buttons
             .help(statusHelp)
             Spacer()
             if model.settings.showLatencyStats, !isError {

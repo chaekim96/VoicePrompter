@@ -67,8 +67,8 @@ pressing **⌃⌥O** from any app, choosing **Open VoicePrompter…** from the m
 | Shortcuts | All hotkeys and mouse gestures |
 | General | Dock icon, open window at launch, open at login, quit |
 
-The prompter itself stays clean. Hovering over it shows a small bar: play/pause, back to start, hide,
-and ⋯ (open the window). Otherwise only a status dot shows (green = listening, gray = paused, orange = lost, red = error).
+The prompter itself stays clean. Hovering over it shows close (hides it; ⌃⌥H brings it back) and minimize
+(to the Dock) at the top-left, and a small bar at the top-right: play/pause, back to start, hide, and ⋯ (open the window). Otherwise only a status dot shows (green = listening, gray = paused, orange = lost, red = error).
 
 | Hotkey | Action |
 |---|---|
