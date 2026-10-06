@@ -1,0 +1,4 @@
+.build/
+build/
+ProtectionTest/prottest
+.DS_Store
