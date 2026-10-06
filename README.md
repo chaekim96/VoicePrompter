@@ -5,6 +5,15 @@ It floats above every app, including full-screen ones, and is hidden from screen
 recordings that use ScreenCaptureKit. That covers Zoom, Google Meet, OBS, QuickTime and screenshots.
 See [ProtectionTest/RESULTS.md](ProtectionTest/RESULTS.md) for what was tested and the known gaps.
 
+## Why I built this
+
+I was working on an assignment and also wanted to practice presenting and interviewing. I wanted a
+teleprompter so I didn't have to keep my notes cluttering my screen while I presented or shared it.
+With how powerful Opus is, I decided to build my own.
+
+When I looked online, the teleprompters I found were either insufficient or wanted me to pay. It's
+insane how powerful Opus is: I built this whole app with Claude Code using Claude Opus.
+
 ## Requirements
 
 - macOS 14 or later (tested on macOS 15.7.4, Apple Silicon)
