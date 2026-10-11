@@ -14,6 +14,20 @@ With how powerful Opus is, I decided to build my own.
 When I looked online, the teleprompters I found were either insufficient or wanted me to pay. It's
 insane how powerful Opus is: I built this whole app with Claude Code using Claude Opus.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Prompter following along](docs/screenshots/prompter-tracking.png) | ![Prompter further into the script](docs/screenshots/prompter-tracking-2.png) |
+
+The prompter following along: the current word is gold, text already read is dimmed, and the view scrolls to keep the current line near the top.
+
+![Main window](docs/screenshots/main-window.png)
+
+The main window, with all settings in a sidebar.
+
+The prompter is normally invisible to screen sharing and recordings. These screenshots were taken with that protection turned off, using the built-in simulated voice engine.
+
 ## Requirements
 
 - macOS 14 or later (tested on macOS 15.7.4, Apple Silicon)
