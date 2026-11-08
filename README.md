@@ -1,4 +1,7 @@
-# VoicePrompter
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="brand/readme/header-dark.png">
+  <img src="brand/readme/header-light.png" alt="VoicePrompter: Reading your notes on a call without anyone seeing them.">
+</picture>
 
 A macOS teleprompter overlay that listens to you read and scrolls the script to match your voice.
 It floats above every app, including full-screen ones, and is hidden from screen sharing and
@@ -174,3 +177,7 @@ Turn on **Settings → Show latency stats** to see live numbers on the overlay:
 - Only one script at a time. Hotkeys can't be changed yet (Carbon registration makes this easy to add).
 - With the Dock icon on, check that the prompter still floats over full-screen apps on your setup.
   If it doesn't, turn off **General → Show in Dock**; the menu bar icon and ⌃⌥O still work.
+
+---
+
+<p align="center"><a href="https://chaekim.vercel.app"><img src="brand/readme/seal.svg" width="10" height="10" alt=""> <sub>a Chae Kim build</sub></a></p>
