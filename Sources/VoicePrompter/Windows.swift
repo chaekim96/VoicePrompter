@@ -91,6 +91,7 @@ struct MainView: View {
                 Label(s.title, systemImage: s.icon).tag(s)
             }
             .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 240)
+            .safeAreaInset(edge: .bottom) { BuildsEndorsement() }
         } detail: {
             Group {
                 switch nav.section {
@@ -105,6 +106,32 @@ struct MainView: View {
             }
             .navigationTitle(nav.section.title)
         }
+    }
+}
+
+/// Builds endorsement (brand book): a 7px seal-red square + "a Chae Kim build", quiet and uppercase,
+/// linking to the portfolio. The brush name signature is for Chae personally and never appears on a product.
+struct BuildsEndorsement: View {
+    private static let seal = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 0xE0 / 255, green: 0x53 / 255, blue: 0x3F / 255, alpha: 1)
+            : NSColor(srgbRed: 0xC6 / 255, green: 0x3D / 255, blue: 0x2F / 255, alpha: 1)
+    })
+
+    var body: some View {
+        Link(destination: URL(string: "https://chaekim.vercel.app")!) {
+            HStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 1).fill(Self.seal).frame(width: 7, height: 7)
+                Text("a Chae Kim build").textCase(.uppercase).font(.system(size: 10)).tracking(1.2)
+            }
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help("chaekim.vercel.app")
+        .accessibilityLabel("A Chae Kim build. Opens chaekim.vercel.app")
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 }
 
