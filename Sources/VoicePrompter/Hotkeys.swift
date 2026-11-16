@@ -50,6 +50,6 @@ final class HotkeyManager {
 
 enum Keys {
     static let ctrlOpt = controlKey | optionKey
-    static let space = kVK_Space, c = kVK_ANSI_C, r = kVK_ANSI_R, h = kVK_ANSI_H, o = kVK_ANSI_O
+    static let space = kVK_Space, c = kVK_ANSI_C, r = kVK_ANSI_R, h = kVK_ANSI_H, o = kVK_ANSI_O, u = kVK_ANSI_U
     static let up = kVK_UpArrow, down = kVK_DownArrow
 }

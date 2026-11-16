@@ -11,6 +11,12 @@ public struct Script: Sendable {
 
     public let text: String
     public let tokens: [Token]
+    /// Paragraph number of each token (parallel to `tokens`). Paragraphs are separated by blank lines
+    /// and numbered 0, 1, 2... counting only paragraphs that contain at least one spoken word.
+    public let paragraphOfToken: [Int]
+    /// Index of the first token of each paragraph.
+    public let paragraphStarts: [Int]
+    public var paragraphCount: Int { paragraphStarts.count }
 
     public init(text: String) {
         self.text = text
@@ -26,6 +32,30 @@ public struct Script: Sendable {
             tokens.append(contentsOf: words.map { Token(word: $0, range: range) })
         }
         self.tokens = tokens
+
+        // Paragraph breaks: a newline, optional blank-ish lines, and another newline.
+        let breaks = try! NSRegularExpression(pattern: "\\r?\\n([ \\t]*\\r?\\n)+")
+            .matches(in: text, range: NSRange(location: 0, length: ns.length)).map { $0.range.location }
+        var paragraphs: [Int] = [], starts: [Int] = []
+        var rawOfPrevious = -1, dense = -1, b = 0
+        for (i, t) in tokens.enumerated() {
+            while b < breaks.count, breaks[b] < t.range.location { b += 1 }
+            if b != rawOfPrevious { rawOfPrevious = b; dense += 1; starts.append(i) }
+            paragraphs.append(dense)
+        }
+        self.paragraphOfToken = paragraphs
+        self.paragraphStarts = starts
+    }
+
+    /// Paragraph the given token index (the last word read) is in, or nil before the start.
+    public func paragraph(at position: Int) -> Int? {
+        position >= 0 && position < paragraphOfToken.count ? paragraphOfToken[position] : nil
+    }
+
+    /// Token range [start, end) of a paragraph.
+    public func tokenRange(ofParagraph p: Int) -> Range<Int> {
+        guard p >= 0, p < paragraphStarts.count else { return 0..<0 }
+        return paragraphStarts[p]..<(p + 1 < paragraphStarts.count ? paragraphStarts[p + 1] : tokens.count)
     }
 
     public var isEmpty: Bool { tokens.isEmpty }

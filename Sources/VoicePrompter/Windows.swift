@@ -197,7 +197,18 @@ struct HomePane: View {
                 }
             }
             Section("Position") {
-                ProgressView(value: progress)
+                ProgressView(value: model.progressFraction)
+                HStack {
+                    Text("\(Int((model.progressFraction * 100).rounded()))% read").monospacedDigit()
+                    Spacer()
+                    if model.script.paragraphCount > 0 {
+                        Text("Section \(model.currentParagraph + 1) of \(model.script.paragraphCount)").monospacedDigit()
+                    }
+                    Spacer()
+                    Text(model.timeLeftText ?? (model.tracking.isActive ? "measuring pace…" : "time left shows once you read"))
+                        .monospacedDigit()
+                }
+                .font(.callout).foregroundStyle(.secondary)
                 Text(currentLine.isEmpty ? "Not started" : "“\(currentLine)”")
                     .font(.callout).foregroundStyle(.secondary).lineLimit(2)
                 HStack {
@@ -210,7 +221,17 @@ struct HomePane: View {
             Section("Prompter window") {
                 Toggle("Show prompter", isOn: $model.overlayVisible)
                 Toggle("Click-through (clicks go to the apps underneath)", isOn: $model.clickThrough)
-                Button("Move prompter to the top of this screen") { model.requestOverlayRecenter() }
+                Picker("Placement", selection: model.binding(\.placement)) {
+                    Text("Under camera").tag(Placement.underCamera)
+                    Text("Free").tag(Placement.free)
+                }
+                .pickerStyle(.segmented)
+                HStack {
+                    Button("Snap under camera (⌃⌥U)", systemImage: "camera.metering.center.weighted") { model.snapUnderCamera() }
+                    if model.settings.placement == .free {
+                        Button("Move to top of this screen") { model.requestOverlayRecenter() }
+                    }
+                }
             }
             Section("Script") {
                 LabeledContent("Current script", value: "\(model.script.tokens.count) words")
@@ -227,10 +248,6 @@ struct HomePane: View {
             }
         }
         .formStyle(.grouped)
-    }
-
-    private var progress: Double {
-        model.script.tokens.isEmpty ? 0 : Double(model.position + 1) / Double(model.script.tokens.count)
     }
 
     /// The script text around the current word, for a quick glance.
@@ -307,6 +324,32 @@ struct AppearancePane: View {
 
     var body: some View {
         Form {
+            Section("Placement") {
+                Picker("Placement", selection: model.binding(\.placement)) {
+                    Text("Under camera").tag(Placement.underCamera)
+                    Text("Free").tag(Placement.free)
+                }
+                .pickerStyle(.segmented)
+                if model.settings.placement == .underCamera {
+                    LabeledContent("Strip width") {
+                        HStack {
+                            Slider(value: model.binding(\.stripWidth), in: 360...900, step: 10)
+                            Text("\(Int(model.settings.stripWidth)) pt").monospacedDigit().frame(width: 56)
+                        }
+                    }
+                    Stepper("Lines shown: \(model.settings.stripLines)", value: model.binding(\.stripLines), in: 2...4)
+                    Text("A narrow strip pinned just below the camera (under the notch on a MacBook Pro), so your eyes stay next to the lens. The current line stays at the top. Drag the text to move it, which switches to Free. Drag a side edge to change the width.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text("Free: drag the prompter anywhere and resize it from any edge. Its size and position are remembered. Use Snap under camera (⌃⌥U) to put it back under the lens.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Section("Progress") {
+                Toggle("Show progress details (section dots and time left)", isOn: model.binding(\.showProgressDetails))
+                Text("The progress rail along the top edge is always on. Time left comes from your live speaking pace.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Text") {
                 LabeledContent("Font size") {
                     HStack {
@@ -323,8 +366,6 @@ struct AppearancePane: View {
                 ColorPicker("Background", selection: model.colorBinding(\.backgroundColor), supportsOpacity: false)
                 LabeledContent("Background opacity") { Slider(value: model.binding(\.backgroundOpacity), in: 0...1) }
                 LabeledContent("Overall opacity") { Slider(value: model.binding(\.windowOpacity), in: 0.2...1) }
-                Text("Move the prompter by dragging its text. Resize it by dragging its edges.")
-                    .font(.caption).foregroundStyle(.secondary)
             }
             Section {
                 Button("Restore Default Appearance") {
@@ -415,11 +456,12 @@ struct ShortcutsPane: View {
                 row("Show / hide the prompter", "⌃⌥H")
                 row("Click-through on / off", "⌃⌥C")
                 row("Back to start", "⌃⌥R")
+                row("Snap under the camera", "⌃⌥U")
                 row("Previous / next line", "⌃⌥↑   ⌃⌥↓")
             }
             Section("On the prompter") {
-                row("Move", "Drag the text")
-                row("Resize", "Drag an edge")
+                row("Move (switches to Free placement)", "Drag the text")
+                row("Resize (under camera: width only)", "Drag an edge")
                 row("Jump to a word", "Double-click it")
             }
             if !HotkeyManager.shared.failed.isEmpty {

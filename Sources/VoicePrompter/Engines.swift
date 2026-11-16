@@ -37,11 +37,13 @@ enum EngineRegistry {
 }
 
 /// Command-line switches for testing: `--audio-file <path>`, `--engine <id>`, `--script <path>`,
-/// `--autostart`, `--no-protect`, `--snapshot <png>`, `--quit-after <seconds>`.
+/// `--autostart`, `--no-protect`, `--placement camera|free`, `--show-window`, `--snapshot <png>`, `--quit-after <seconds>`.
 struct LaunchOptions {
     var audioFile: URL?
     var engineID: String?
     var autostart = false
+    var showWindow = false      // --show-window: open the main window even in a test run
+    var placement: Placement?   // --placement camera|free: overrides the saved setting for this run
     var disableProtection = false
     var scriptFile: URL?
     var snapshot: URL?          // --snapshot <png>: render the overlay to a file every second (for headless checks)
@@ -57,6 +59,8 @@ struct LaunchOptions {
             case "--script": o.scriptFile = args.next().map { URL(fileURLWithPath: $0) }
             case "--snapshot": o.snapshot = args.next().map { URL(fileURLWithPath: $0) }
             case "--quit-after": o.quitAfter = args.next().flatMap(Double.init)
+            case "--placement": o.placement = args.next().flatMap { $0 == "free" ? .free : $0 == "camera" ? .underCamera : nil }
+            case "--show-window": o.showWindow = true
             case "--autostart": o.autostart = true
             case "--no-protect": o.disableProtection = true
             default: break

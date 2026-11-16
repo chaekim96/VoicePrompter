@@ -14,7 +14,16 @@ struct RGBA: Codable, Equatable {
     var color: Color { Color(nsColor: nsColor) }
 }
 
+enum Placement: String, Codable, CaseIterable {
+    case underCamera, free
+}
+
 struct AppSettings: Codable, Equatable {
+    // Placement: under the camera (default) or free-floating
+    var placement = Placement.underCamera
+    var stripWidth: Double = 560
+    var stripLines: Int = 3
+
     // Appearance
     var fontSize: Double = 34
     var textColor = RGBA(r: 1, g: 1, b: 1)
@@ -24,6 +33,7 @@ struct AppSettings: Codable, Equatable {
     var windowOpacity: Double = 1.0
     var readTextOpacity: Double = 0.35
     var lineHeight: Double = 1.2
+    var showProgressDetails = true // section dots + time left (the progress rail is always on)
 
     // Tracking
     var engineID = EngineRegistry.defaultID
@@ -83,13 +93,13 @@ enum ScriptStore {
     over this window, and start reading this text out loud.
 
     As you speak, the current word lights up, the text you have already read fades out, and the script \
-    scrolls so the line you are on stays in the upper third of the window.
+    scrolls so the line you are on stays at the top, right under the camera.
 
     Feel free to ad-lib. Say something that isn't in the script, skip a sentence, or repeat a phrase. \
     The tracker waits for strong evidence before it jumps anywhere far away.
 
     Drag the window to move it and drag its edges to resize it. Control Option C makes it click-through, \
-    so you can use the apps underneath. Control Option H hides it instantly. Control Option R jumps back \
+    so you can use the apps underneath. Control Option U snaps it back under the camera. Control Option H hides it instantly. Control Option R jumps back \
     to the start, and Control Option Up and Down nudge the position one line at a time.
 
     Open Edit Script from the menu bar icon to paste your own text or import a .txt or .md file.

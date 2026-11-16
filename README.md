@@ -23,11 +23,11 @@ insane how powerful Opus is: I built this whole app with Claude Code using Claud
 |---|---|
 | ![Prompter following along](docs/screenshots/prompter-tracking.png) | ![Prompter further into the script](docs/screenshots/prompter-tracking-2.png) |
 
-The prompter following along: the current word is gold, text already read is dimmed, and the view scrolls to keep the current line near the top.
+The prompter in Under camera mode, following along: the current word sits in a gold pill, the current line stays at the top edge (nearest the lens), read words dim, and the next lines fade in below. Along the edges: the progress rail (top), one dot per paragraph, and the time left at your live pace.
 
 ![Main window](docs/screenshots/main-window.png)
 
-The main window, with all settings in a sidebar.
+The main window, with all settings in a sidebar. The Prompter pane shows percent read, the current section and the time left.
 
 The prompter is normally invisible to screen sharing and recordings. These screenshots were taken with that protection turned off, using the built-in simulated voice engine.
 
@@ -85,9 +85,9 @@ pressing **⌃⌥O** from any app, choosing **Open VoicePrompter…** from the m
 
 | Sidebar | What's there |
 |---|---|
-| Prompter | Start/pause, status, progress through the script, show/hide, click-through, move the prompter back on screen, permission status |
+| Prompter | Start/pause, status, progress (percent, section, time left), show/hide, click-through, placement, snap under the camera, permission status |
 | Script | Paste or edit your script, import `.txt`/`.md`, word count |
-| Appearance | Font size, line height, colors, dimming of read text, background and overall opacity |
+| Appearance | Placement (Under camera / Free), strip width and lines, show progress details, font size, line height, colors, dimming of read text, background and overall opacity |
 | Voice Tracking | Engine, language, on-device only, permissions, latency readout |
 | Privacy | Hide from screen capture, plus what is and isn't covered |
 | Shortcuts | All hotkeys and mouse gestures |
@@ -103,10 +103,29 @@ The prompter itself stays clean. Hovering over it shows close (hides it; ⌃⌥H
 | ⌃⌥H | Show / hide the prompter instantly |
 | ⌃⌥C | Click-through on/off (clicks pass through to apps underneath) |
 | ⌃⌥R | Back to the start |
+| ⌃⌥U | Snap the prompter under the camera |
 | ⌃⌥↑ / ⌃⌥↓ | Move the position one line up/down |
 
 On the prompter, drag the text to move it, drag an edge to resize, scroll to look ahead, and
 **double-click a word** to set your position there.
+
+### Under camera mode (the default)
+
+Reading from a big window makes you look away from the lens. In **Under camera** placement the prompter
+becomes a narrow strip (560 pt wide, three lines) pinned top-center, directly under the camera. On a
+MacBook with a notch, its top edge sits right below the notch and is centered on it. On other displays it sits
+at the top-center, below the menu bar. The current line stays on the top line of the strip, nearest the lens, with
+the next two lines fading in below. The text is centered.
+
+- **Width:** Appearance → Strip width, or drag a side edge (it stays centered under the camera). Lines shown: 2 to 4.
+- **Move it:** dragging the text switches to **Free** placement (drag anywhere, size and position remembered).
+  **⌃⌥U**, the menu bar item, or the Prompter pane's *Snap under camera* button puts it back.
+  It re-snaps by itself when you plug in or unplug a display.
+- **Progress** (always visible, never over the text): a rail along the top edge fills as you read, with a notch at each
+  paragraph break. A footer shows one dot per paragraph (read = filled, current = ring that fills as you read it, upcoming
+  = hollow) and the time left, measured from how fast you've actually been speaking over the last ~25 s
+  (pauses are ignored). Turn off the dots and time with **Appearance → Show progress details**. The hover controls
+  sit in the same footer, so they never cover the text either.
 
 Settings persist in `UserDefaults`. The script and position are kept in `~/Library/Application Support/VoicePrompter/`.
 
@@ -116,7 +135,8 @@ Settings persist in `UserDefaults`. The script and position are kept in `~/Libra
 Sources/
   PrompterCore/            (pure Swift, unit-tested, no UI)
     Normalizer.swift       text → comparable tokens ("40%" → forty percent, "$5", hyphens, diacritics)
-    Script.swift           script tokens mapped back to highlight ranges; Markdown import
+    Script.swift           script tokens mapped back to highlight ranges; paragraph index per token; Markdown import
+    PaceEstimator.swift    live words-per-minute over a rolling window (pauses ignored) → time left
     WordSimilarity.swift   fuzzy word match: exact, homophones, inflections, edit distance
     Aligner.swift          position tracking (see below)
     SpeechEngine.swift     pluggable recognizer protocol + RecognitionUpdate
@@ -125,8 +145,8 @@ Sources/
     AppleSpeechEngine.swift  SFSpeechRecognizer + AVAudioEngine, session rotation, onset latency meter
     Engines.swift            engine registry, launch flags, permission URLs
     AppModel.swift           state + pipeline: engine → aligner → overlay
-    Overlay.swift            NSPanel (non-activating, .screenSaver level, all Spaces, sharingType=.none)
-    PrompterTextView.swift   TextKit rendering, incremental highlighting, upper-third scrolling
+    Overlay.swift            NSPanel (non-activating, .screenSaver level, all Spaces, sharingType=.none), under-camera placement, progress rail/dots
+    PrompterTextView.swift   TextKit rendering, incremental highlighting, current-word pill, scroll anchoring (top edge or upper third)
     Hotkeys.swift            Carbon global hotkeys
     Windows.swift            main window: sidebar with Prompter, Script, Appearance, Voice, Privacy, Shortcuts, General
 ProtectionTest/            capture-API test harness + results

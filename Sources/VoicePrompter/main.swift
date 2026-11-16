@@ -27,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         registerHotkeys()
         setUpStatusItem()
         let isTestRun = model.launch.autostart || model.launch.snapshot != nil || model.launch.audioFile != nil
-        if model.settings.showWindowOnLaunch && !isTestRun { windows.show() }
+        if (model.settings.showWindowOnLaunch && !isTestRun) || model.launch.showWindow { windows.show() }
         if model.launch.autostart { model.startTracking() }
         if let t = model.launch.quitAfter {
             DispatchQueue.main.asyncAfter(deadline: .now() + t) { NSApp.terminate(nil) }
@@ -59,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hk.register(Keys.r, Keys.ctrlOpt, display: "⌃⌥R") { [weak self] in self?.model.resetToStart() }
         hk.register(Keys.up, Keys.ctrlOpt, display: "⌃⌥↑") { [weak self] in self?.overlay.nudge(lines: -1) }
         hk.register(Keys.down, Keys.ctrlOpt, display: "⌃⌥↓") { [weak self] in self?.overlay.nudge(lines: 1) }
+        hk.register(Keys.u, Keys.ctrlOpt, display: "⌃⌥U") { [weak self] in self?.model.snapUnderCamera() }
         hk.register(Keys.h, Keys.ctrlOpt, display: "⌃⌥H") { [weak self] in self?.model.overlayVisible.toggle() }
     }
 
@@ -98,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         item(m.tracking.isActive ? "Pause Tracking" : "Start Tracking", " ") { m.toggleTracking(source: "menu") }
         item("Back to Start", "r") { m.resetToStart() }
+        item("Snap Under Camera", "u", on: m.settings.placement == .underCamera) { m.snapUnderCamera() }
         item("Click-Through", "c", on: m.clickThrough) { m.clickThrough.toggle() }
         item(m.overlayVisible ? "Hide Overlay" : "Show Overlay", "h") { m.overlayVisible.toggle() }
         menu.addItem(.separator())

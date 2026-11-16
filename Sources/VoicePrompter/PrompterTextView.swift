@@ -16,6 +16,32 @@ final class PrompterTextView: NSTextView {
         var highlight: NSColor = .systemYellow
         var readOpacity: CGFloat = 0.35
         var lineHeight: CGFloat = 1.2
+        /// Under-camera layout: centered text, current line pinned to the top edge (the one nearest the lens).
+        var camera = false
+    }
+
+    /// Where the current line sits, as a fraction of the visible height. Free mode centers the line's
+    /// middle at one third; camera mode pins the line's top just under the top edge.
+    private var anchorFraction: CGFloat { style.camera ? 0.02 : 1.0 / 3 }
+
+    /// Soft rounded pill behind the current word.
+    override func draw(_ dirtyRect: NSRect) {
+        if position >= 0, position < script.tokens.count, let lm = layoutManager, let tc = textContainer {
+            let g = lm.glyphRange(forCharacterRange: script.tokens[position].range, actualCharacterRange: nil)
+            var r = lm.boundingRect(forGlyphRange: g, in: tc)
+            let o = textContainerOrigin
+            r.origin.x += o.x; r.origin.y += o.y
+            r = r.insetBy(dx: -7, dy: 2)
+            if r.intersects(dirtyRect) {
+                let path = NSBezierPath(roundedRect: r, xRadius: r.height * 0.28, yRadius: r.height * 0.28)
+                style.highlight.withAlphaComponent(0.2).setFill()
+                path.fill()
+                style.highlight.withAlphaComponent(0.55).setStroke()
+                path.lineWidth = 1
+                path.stroke()
+            }
+        }
+        super.draw(dirtyRect)
     }
 
     static func make() -> PrompterTextView {
@@ -48,10 +74,26 @@ final class PrompterTextView: NSTextView {
         let para = NSMutableParagraphStyle()
         para.lineHeightMultiple = style.lineHeight
         para.paragraphSpacing = style.fontSize * 0.45
+        if style.camera { para.alignment = .center }
+        textContainerInset = style.camera ? NSSize(width: 30, height: 8) : NSSize(width: 26, height: 22)
         let font = NSFont.systemFont(ofSize: style.fontSize, weight: .medium)
         let attr = NSMutableAttributedString(string: script.text, attributes: [
             .font: font, .foregroundColor: style.text, .paragraphStyle: para,
         ])
+        if style.camera {
+            // The strip is only a few lines tall, so a blank line between paragraphs shrinks to a small gap.
+            let gap = para.mutableCopy() as! NSMutableParagraphStyle
+            gap.lineHeightMultiple = 1
+            gap.minimumLineHeight = style.fontSize * 0.3
+            gap.maximumLineHeight = style.fontSize * 0.3
+            gap.paragraphSpacing = 0
+            para.paragraphSpacing = 0
+            attr.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: attr.length))
+            let re = try! NSRegularExpression(pattern: "(?<=\\n)[ \\t]*\\r?\\n")
+            for m in re.matches(in: script.text, range: NSRange(location: 0, length: (script.text as NSString).length)) {
+                attr.addAttribute(.paragraphStyle, value: gap, range: m.range)
+            }
+        }
         textStorage?.setAttributedString(attr)
         paint(from: 0, to: (script.text as NSString).length)
     }
@@ -60,6 +102,7 @@ final class PrompterTextView: NSTextView {
         let old = position
         position = new
         guard old != new else { return }
+        needsDisplay = true // the current-word pill moves
         let lo = min(readEnd(old), readEnd(new))
         let hi = max(currentEnd(old), currentEnd(new))
         paint(from: lo, to: hi)
@@ -99,8 +142,9 @@ final class PrompterTextView: NSTextView {
             lm.ensureLayout(for: tc)
             let glyphs = lm.glyphRange(forCharacterRange: script.tokens[position].range, actualCharacterRange: nil)
             let line = lm.lineFragmentRect(forGlyphAt: glyphs.location, effectiveRange: nil)
-            let lineMidY = line.midY + textContainerOrigin.y
-            targetY = max(0, lineMidY - clip.bounds.height / 3)
+            let anchorY = anchorFraction * clip.bounds.height
+            let lineRef = style.camera ? line.minY : line.midY
+            targetY = max(0, lineRef + textContainerOrigin.y - anchorY)
         }
         let maxY = max(0, frame.height - clip.bounds.height + scrollView.contentInsets.bottom)
         targetY = min(targetY, maxY)
@@ -130,7 +174,6 @@ final class PrompterTextView: NSTextView {
         }
         WindowDragger.track(event)
     }
-
 }
 
 /// Moves a borderless window by dragging, or resizes it when the drag starts within a few points
@@ -163,6 +206,10 @@ enum WindowDragger {
     static func track(_ event: NSEvent) {
         guard let window = event.window else { return }
         let grab = edges(at: event.locationInWindow, in: window)
+        if let panel = window as? OverlayPanel, panel.cameraLocked {
+            trackLocked(event, panel: panel, grab: grab)
+            return
+        }
         let startMouse = NSEvent.mouseLocation
         let start = window.frame
         let minSize = window.minSize
@@ -183,5 +230,33 @@ enum WindowDragger {
             if grab.contains(.bottom) { f.size.height = max(minSize.height, start.height - dy); f.origin.y = start.maxY - f.height }
             window.setFrame(f, display: true)
         }
+    }
+
+    /// Under-camera mode: edge drags resize the strip symmetrically around the camera (top edge fixed), and
+    /// dragging the text picks the prompter up, which switches it to Free placement.
+    private static func trackLocked(_ event: NSEvent, panel: OverlayPanel, grab: Edges) {
+        let startMouse = NSEvent.mouseLocation
+        let start = panel.frame
+        var dragging = false
+        let horizontal = grab.intersection([.left, .right])
+        if horizontal.isEmpty, !grab.isEmpty { // top/bottom edges: nothing to resize
+            while let e = panel.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]), e.type != .leftMouseUp {}
+            return
+        }
+        while let e = panel.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]), e.type != .leftMouseUp {
+            let m = NSEvent.mouseLocation
+            let dx = m.x - startMouse.x, dy = m.y - startMouse.y
+            if !dragging && hypot(dx, dy) < 3 { continue }
+            if horizontal.isEmpty {
+                if !dragging { dragging = true; panel.onPickedUp?() }
+                panel.setFrameOrigin(NSPoint(x: start.minX + dx, y: start.minY + dy))
+            } else {
+                dragging = true
+                let delta = horizontal.contains(.right) ? dx : -dx
+                let w = min(max(panel.minSize.width, start.width + 2 * delta), panel.maxWidthForStrip)
+                panel.setFrame(NSRect(x: start.midX - w / 2, y: start.minY, width: w, height: start.height), display: true)
+            }
+        }
+        if dragging, !horizontal.isEmpty { panel.onStripResized?(panel.frame.width) }
     }
 }

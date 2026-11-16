@@ -39,8 +39,37 @@ final class AppModel: ObservableObject {
     /// Called right after the position changes, in the same run-loop turn (keeps latency minimal).
     var onPositionChange: ((_ position: Int, _ animated: Bool) -> Void)?
     var onRecenterRequest: (() -> Void)?
+    var onSnapRequest: (() -> Void)?
 
     func requestOverlayRecenter() { overlayVisible = true; onRecenterRequest?() }
+
+    /// Puts the prompter under the camera (switching to Under camera placement if needed).
+    func snapUnderCamera() {
+        overlayVisible = true
+        if settings.placement != .underCamera { settings.placement = .underCamera } else { onSnapRequest?() }
+    }
+
+    // MARK: - Progress
+
+    /// Measured speaking pace (words per minute), nil until enough speech has been heard.
+    @Published private(set) var wordsPerMinute: Double?
+    private var pace = PaceEstimator()
+
+    var progressFraction: Double {
+        script.tokens.isEmpty ? 0 : Double(position + 1) / Double(script.tokens.count)
+    }
+    var wordsRemaining: Int { max(0, script.tokens.count - (position + 1)) }
+    /// Estimated seconds of speaking left at the current pace.
+    var secondsRemaining: TimeInterval? { pace.secondsRemaining(wordsLeft: wordsRemaining) }
+    var timeLeftText: String? { secondsRemaining.map { "~" + PaceEstimator.format(seconds: $0) + " left" } }
+    /// Zero-based paragraph of the current word (0 before the start).
+    var currentParagraph: Int { script.paragraph(at: position) ?? 0 }
+    /// How far through the current paragraph, 0...1.
+    var paragraphFraction: Double {
+        guard let p = script.paragraph(at: position) else { return 0 }
+        let r = script.tokenRange(ofParagraph: p)
+        return r.isEmpty ? 0 : Double(position + 1 - r.lowerBound) / Double(r.count)
+    }
 
     let launch = LaunchOptions.current
     private let aligner: ScriptAligner
@@ -49,6 +78,7 @@ final class AppModel: ObservableObject {
     init() {
         var settings = AppSettings.load()
         if let id = LaunchOptions.current.engineID { settings.engineID = id }
+        if let placement = LaunchOptions.current.placement { settings.placement = placement }
         self.settings = settings
         var text = ScriptStore.loadScript() ?? ScriptStore.sample
         var position = ScriptStore.position
@@ -70,6 +100,7 @@ final class AppModel: ObservableObject {
         script = Script(text: text)
         ScriptStore.saveScript(text)
         aligner.load(script: script)
+        pace.reset(); wordsPerMinute = nil
         setPosition(-1, animated: false)
         if wasTracking { startTracking() }
     }
@@ -85,6 +116,7 @@ final class AppModel: ObservableObject {
     func setPosition(_ p: Int, animated: Bool = true) {
         let clamped = max(-1, min(p, script.tokens.count - 1))
         aligner.reset(to: clamped)
+        pace.breakContinuity() // manual moves aren't speech
         applyPosition(clamped, animated: animated)
     }
 
@@ -151,7 +183,11 @@ final class AppModel: ObservableObject {
     private func handle(_ update: RecognitionUpdate) {
         guard engine != nil else { return }
         let moved = aligner.ingest(segment: update.segment, text: update.text)
-        if let p = moved { applyPosition(p, animated: true) }
+        if let p = moved {
+            pace.record(position: p, at: ProcessInfo.processInfo.systemUptime)
+            wordsPerMinute = pace.wordsPerMinute
+            applyPosition(p, animated: true)
+        }
         isLost = aligner.isLost
 
         var s = stats
