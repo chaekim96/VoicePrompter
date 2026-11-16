@@ -80,8 +80,9 @@ enum CameraGeometry {
 
     /// The y coordinate the strip's top edge sits at: the bottom edge of the notch, or the bottom of the
     /// menu bar on a display without one.
+    /// Top edge of the strip: fully below the menu bar, and below the notch even when the menu bar auto-hides.
     static func stripTop(on screen: NSScreen) -> CGFloat {
-        screen.safeAreaInsets.top > 0 ? screen.frame.maxY - screen.safeAreaInsets.top : screen.visibleFrame.maxY
+        min(screen.visibleFrame.maxY, screen.frame.maxY - screen.safeAreaInsets.top)
     }
 }
 
@@ -296,9 +297,7 @@ final class OverlayController {
         programmatic = true
         defer { programmatic = false }
         panel.cameraLocked = isCamera
-        container.layer?.maskedCorners = isCamera
-            ? [.layerMinXMinYCorner, .layerMaxXMinYCorner] // bottom corners only; the top meets the notch / menu bar
-            : [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        container.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
         if isCamera {
             panel.minSize = NSSize(width: 300, height: 60)
             if let f = cameraFrame() { panel.setFrame(f, display: true) }

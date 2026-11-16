@@ -113,8 +113,8 @@ On the prompter, drag the text to move it, drag an edge to resize, scroll to loo
 
 Reading from a big window makes you look away from the lens. In **Under camera** placement the prompter
 becomes a narrow strip (560 pt wide, three lines) pinned top-center, directly under the camera. On a
-MacBook with a notch, its top edge sits right below the notch and is centered on it. On other displays it sits
-at the top-center, below the menu bar. The current line stays on the top line of the strip, nearest the lens, with
+MacBook with a notch, it is centered on the notch with its top edge just below the menu bar. On other displays it
+sits at the top-center, below the menu bar. The current line stays on the top line of the strip, nearest the lens, with
 the next two lines fading in below. The text is centered.
 
 - **Width:** Appearance → Strip width, or drag a side edge (it stays centered under the camera). Lines shown: 2 to 4.
